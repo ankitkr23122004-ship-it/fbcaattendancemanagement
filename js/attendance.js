@@ -77,8 +77,7 @@ export async function markAttendanceRecord({
         return { success: false, message: `Student "${studentData.studentName}" is deactivated.` };
     }
 
-    // 2. STRICT DUPLICATE CHECK (Ek hi baar lagna chahiye)
-    // Document ID format: ATT_{instituteId}_{sessionDate}_{studentId}
+    // 2. STRICT DUPLICATE CHECK (Aaj ka check)
     const safeStudentId = studentId.replace(/[\/\s]/g, "_");
     const attDocId = `ATT_${instituteId}_${sessionDate}_${safeStudentId}`;
     const attDocRef = doc(db, "attendance", attDocId);
@@ -93,7 +92,21 @@ export async function markAttendanceRecord({
         };
     }
 
-    // 3. FEE DUE DATE CHECK
+    // -------------------------------------------------------------
+    // 👉 YAHAN SE STEP 2 KA MAIN CODE JUDEGA (Kal ka Check & Fee Check)
+    // -------------------------------------------------------------
+
+    // A. Kal (Yesterday) ki date nikalna
+    const yDateObj = new Date(sessionDate);
+    yDateObj.setDate(yDateObj.getDate() - 1);
+    const yesterdayDate = yDateObj.toISOString().split("T")[0];
+
+    // B. Check karein kal present tha ya absent
+    const yAttDocId = `ATT_${instituteId}_${yesterdayDate}_${safeStudentId}`;
+    const yesterdaySnap = await getDoc(doc(db, "attendance", yAttDocId));
+    const wasAbsentYesterday = !yesterdaySnap.exists(); // agar doc nahi mila toh absent tha
+
+    // C. Fee Due Check
     const today = new Date().toISOString().split("T")[0];
     const balance = Number(studentData.balance) || 0;
     const feeDueDate = studentData.feeDueDate || "";
@@ -105,7 +118,7 @@ export async function markAttendanceRecord({
         feeWarning = `ℹ️ Fee Notice: Outstanding due balance of ₹${balance.toLocaleString("en-IN")}.`;
     }
 
-    // 4. Record Attendance
+    // 4. Attendance Firestore mein Save karna
     const now = new Date();
     const markedAt = now.toLocaleTimeString("en-IN", { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
@@ -128,16 +141,24 @@ export async function markAttendanceRecord({
     await setDoc(attDocRef, attendanceRecord);
     playBeep(feeWarning && feeWarning.includes("OVERDUE") ? "error" : "success");
 
+    // -------------------------------------------------------------
+    // 👉 YAHAN POPUP MODAL KE LIYE DATA RETURN HOGA
+    // -------------------------------------------------------------
     return {
         success: true,
         studentId: studentData.studentId,
         studentName: studentData.studentName,
+        courseName: studentData.courseName,
+        batchTime: studentData.batchTime || batchTime,
+        photoUrl: studentData.photoUrl || "",
+        balance: balance,
+        feeDueDate: feeDueDate,
+        wasAbsentYesterday: wasAbsentYesterday,
         markedAt: markedAt,
         feeWarning: feeWarning,
         message: `✓ Attendance marked for ${studentData.studentName}`
     };
-}
-// 2. Fetch Session Attendance Records
+}// 2. Fetch Session Attendance Records
 export async function fetchSessionAttendance(instituteId, batchTime, sessionDate) {
     if (!sessionDate) return [];
 
