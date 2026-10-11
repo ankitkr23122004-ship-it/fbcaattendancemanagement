@@ -3,6 +3,7 @@
  * Comprehensive Attendance Engine with Analytics, Holidays & QR Camera Scanner
  */
 
+// js/attendance.js
 import { db } from "./firebase-config.js";
 import { 
     collection, 
@@ -10,71 +11,132 @@ import {
     where, 
     getDocs, 
     addDoc,
-    updateDoc,
-    doc
+    setDoc,
+    getDoc,
+    updateDoc, 
+    doc 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 let html5QrScannerInstance = null;
 
 // 1. Mark Attendance Record
-export async function markAttendanceRecord({ instituteId, instituteName, branch, batchTime, sessionDate, studentId }) {
-    if (!studentId) return { success: false, message: "Invalid Student ID" };
+// Helper: Beep sound for success / warning
+function playBeep(type = "success") {
+    try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
 
-    const sq = query(collection(db, "students"), where("studentId", "==", studentId.trim()));
-    const studentSnap = await getDocs(sq);
+        if (type === "success") {
+            osc.frequency.setValueAtTime(880, ctx.currentTime); // High pitch (A5)
+            gain.gain.setValueAtTime(0.2, ctx.currentTime);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.15);
+        } else {
+            // Error / Warning double tone
+            osc.frequency.setValueAtTime(300, ctx.currentTime);
+            gain.gain.setValueAtTime(0.3, ctx.currentTime);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.3);
+        }
+    } catch (e) {
+        // Audio context fallback
+    }
+}
+
+export async function markAttendanceRecord({
+    instituteId,
+    instituteName,
+    branch,
+    batchTime,
+    sessionDate,
+    studentId
+}) {
+    // 1. Student Fetch Karein
+    const studentsRef = collection(db, "students");
+    const qStudent = query(
+        studentsRef, 
+        where("studentId", "==", studentId), 
+        where("instituteId", "==", instituteId)
+    );
+    const studentSnap = await getDocs(qStudent);
 
     if (studentSnap.empty) {
-        return { success: false, message: `Student ID not registered: ${studentId}` };
+        playBeep("error");
+        return { success: false, message: `Student ID "${studentId}" not found in this branch.` };
     }
 
-    const studentData = studentSnap.docs[0].data();
+    const studentDoc = studentSnap.docs[0];
+    const studentData = studentDoc.data();
 
-    // Prevent duplicate attendance for the same day
-    const dupQ = query(
-        collection(db, "attendance"),
-        where("studentId", "==", studentId.trim()),
-        where("sessionDate", "==", sessionDate)
-    );
-    const dupSnap = await getDocs(dupQ);
-    if (!dupSnap.empty) {
+    // Inactive student check
+    if (studentData.status === "Inactive") {
+        playBeep("error");
+        return { success: false, message: `Student "${studentData.studentName}" is deactivated.` };
+    }
+
+    // 2. STRICT DUPLICATE CHECK (Ek hi baar lagna chahiye)
+    // Document ID format: ATT_{instituteId}_{sessionDate}_{studentId}
+    const safeStudentId = studentId.replace(/[\/\s]/g, "_");
+    const attDocId = `ATT_${instituteId}_${sessionDate}_${safeStudentId}`;
+    const attDocRef = doc(db, "attendance", attDocId);
+    const existingSnap = await getDoc(attDocRef);
+
+    if (existingSnap.exists()) {
+        playBeep("error");
+        const existingData = existingSnap.data();
         return { 
             success: false, 
-            message: `Already marked today: ${studentData.studentName} (${studentId})` 
+            message: `⚠️ Already Marked! "${studentData.studentName}" attendance was already marked at ${existingData.markedAt}.` 
         };
     }
 
+    // 3. FEE DUE DATE CHECK
+    const today = new Date().toISOString().split("T")[0];
+    const balance = Number(studentData.balance) || 0;
+    const feeDueDate = studentData.feeDueDate || "";
+    let feeWarning = null;
+
+    if (balance > 0 && feeDueDate && today > feeDueDate) {
+        feeWarning = `⚠️ FEE OVERDUE: ₹${balance.toLocaleString("en-IN")} pending (Due date was: ${feeDueDate}). Collect immediately!`;
+    } else if (balance > 0) {
+        feeWarning = `ℹ️ Fee Notice: Outstanding due balance of ₹${balance.toLocaleString("en-IN")}.`;
+    }
+
+    // 4. Record Attendance
     const now = new Date();
-    const timeString = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+    const markedAt = now.toLocaleTimeString("en-IN", { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
-    let punctuality = "On-Time";
-    const assignedBatch = studentData.batchTime || batchTime;
-
-    const record = {
-        studentId: studentId.trim(),
-        studentName: studentData.studentName || "Student",
+    const attendanceRecord = {
+        instituteId,
+        instituteName,
+        branch,
+        studentId: studentData.studentId,
+        studentName: studentData.studentName,
+        courseName: studentData.courseName,
+        batchTime: batchTime === "ALL" ? studentData.batchTime : batchTime,
+        sessionDate,
+        markedAt,
+        punctuality: "On-Time",
+        status: "Present",
         photoUrl: studentData.photoUrl || "",
-        courseName: studentData.courseName || "-",
-        batchTime: assignedBatch || "General",
-        instituteId: instituteId,
-        instituteName: instituteName || studentData.instituteName || "",
-        branch: branch || studentData.branch || "",
-        sessionDate: sessionDate,
-        markedAt: timeString,
-        timestamp: now.toISOString(),
-        punctuality: punctuality,
-        status: "Present"
+        timestamp: now.toISOString()
     };
 
-    await addDoc(collection(db, "attendance"), record);
+    await setDoc(attDocRef, attendanceRecord);
+    playBeep(feeWarning && feeWarning.includes("OVERDUE") ? "error" : "success");
 
     return {
         success: true,
+        studentId: studentData.studentId,
         studentName: studentData.studentName,
-        studentId: studentId,
-        batchTime: record.batchTime
+        markedAt: markedAt,
+        feeWarning: feeWarning,
+        message: `✓ Attendance marked for ${studentData.studentName}`
     };
 }
-
 // 2. Fetch Session Attendance Records
 export async function fetchSessionAttendance(instituteId, batchTime, sessionDate) {
     if (!sessionDate) return [];
