@@ -992,32 +992,29 @@ admissionForm?.addEventListener("submit", async (e) => {
     }
 });
 
-// Attendance Engine
-// Attendance Engine
-async function handleProcessAttendance(rawData) {
-    if (!rawData) return;
-    let studentId = rawData.trim();
+// Scan control flag taaki confirmation aane tak agla scan na ho
+let isAttendanceProcessing = false;
 
+async function handleProcessAttendance(rawData) {
+    if (!rawData || isAttendanceProcessing) return;
+    
+    // Scanner lock karein
+    isAttendanceProcessing = true;
+
+    let studentId = rawData.trim();
     if (studentId.includes("id=")) {
         try {
             const urlObj = new URL(studentId, window.location.origin);
             studentId = urlObj.searchParams.get("id") || studentId;
         } catch (e) {
-            const parts = studentId.split("id=");
-            studentId = parts[1]?.split("&")[0] || studentId;
+            studentId = studentId.split("id=")[1]?.split("&")[0] || studentId;
         }
     }
-
     studentId = decodeURIComponent(studentId).trim();
 
     const activeKey = instituteSelect ? instituteSelect.value : "TB_EDU";
     const batch = attSessionBatchSelect ? attSessionBatchSelect.value : "ALL";
-    const sessionDate = attSessionDateInput ? attSessionDateInput.value : "";
-
-    if (!sessionDate) {
-        showToast("Please select a session date first.");
-        return;
-    }
+    const sessionDate = attSessionDateInput ? attSessionDateInput.value : new Date().toISOString().split("T")[0];
 
     const result = await markAttendanceRecord({
         instituteId: activeKey,
@@ -1029,32 +1026,83 @@ async function handleProcessAttendance(rawData) {
     });
 
     if (result.success) {
-        // Agar Fee overdue hai toh alert message highlight hoga
-        if (result.feeWarning && result.feeWarning.includes("OVERDUE")) {
-            showToast(`✓ Marked Present: ${result.studentName}`);
-            displayScannerFeedback(`✓ Success: ${result.studentName} marked present!\n${result.feeWarning}`, "error");
-        } else {
-            showToast(`✓ Marked Present: ${result.studentName} (${result.studentId})`);
-            const msg = result.feeWarning 
-                ? `✓ Success: ${result.studentName} marked present!\n${result.feeWarning}`
-                : `✓ Success: ${result.studentName} marked present at ${result.markedAt}!`;
-            displayScannerFeedback(msg, "success");
-        }
+        showAttendanceConfirmationPopup(result);
         await loadSessionAttendanceTable();
     } else {
         showToast(result.message);
         displayScannerFeedback(result.message, "error");
+        // Error par 2 second baad scanner fir khul jayega
+        setTimeout(() => {
+            isAttendanceProcessing = false;
+        }, 2000);
     }
 }
-function displayScannerFeedback(message, type) {
-    if (!scannerFeedback) return;
-    scannerFeedback.textContent = message;
-    scannerFeedback.className = `scanner-feedback-box ${type === "success" ? "feedback-success" : "feedback-error"}`;
-    scannerFeedback.style.display = "block";
-    setTimeout(() => {
-        if (scannerFeedback) scannerFeedback.style.display = "none";
-    }, 3500);
+
+// Function to populate and display confirmation popup
+function showAttendanceConfirmationPopup(data) {
+    const modal = document.getElementById("attConfirmModal");
+    const nameEl = document.getElementById("attConfirmName");
+    const idEl = document.getElementById("attConfirmId");
+    const batchEl = document.getElementById("attConfirmBatch");
+    const timeEl = document.getElementById("attConfirmTimeBadge");
+    const photoImg = document.getElementById("attConfirmPhoto");
+    const photoPh = document.getElementById("attConfirmPhotoPlaceholder");
+    const yesterdayTag = document.getElementById("attConfirmYesterdayTag");
+    const duesBox = document.getElementById("attConfirmDuesBox");
+    const duesAmount = document.getElementById("attConfirmDuesAmount");
+    const duesDate = document.getElementById("attConfirmDueDate");
+
+    if (nameEl) nameEl.textContent = data.studentName;
+    if (idEl) idEl.textContent = data.studentId;
+    if (batchEl) batchEl.textContent = data.batchTime;
+    if (timeEl) timeEl.textContent = data.markedAt;
+
+    // Photo check
+    if (data.photoUrl && photoImg) {
+        photoImg.src = data.photoUrl;
+        photoImg.style.display = "block";
+        if (photoPh) photoPh.style.display = "none";
+    } else {
+        if (photoImg) photoImg.style.display = "none";
+        if (photoPh) {
+            photoPh.style.display = "block";
+            photoPh.textContent = (data.studentName || 'S').charAt(0).toUpperCase();
+        }
+    }
+
+    // 1. Kal Absent check
+    if (yesterdayTag) {
+        yesterdayTag.style.display = data.wasAbsentYesterday ? "block" : "none";
+    }
+
+    // 2. Pending Fee Dues check
+    if (duesBox) {
+        if (data.balance > 0) {
+            duesBox.style.display = "block";
+            if (duesAmount) duesAmount.textContent = `₹${data.balance.toLocaleString("en-IN")}`;
+            if (duesDate) {
+                duesDate.textContent = data.feeDueDate 
+                    ? `Due Date was: ${data.feeDueDate}` 
+                    : "Due Date: Not configured";
+            }
+        } else {
+            duesBox.style.display = "none";
+        }
+    }
+
+    if (modal) modal.style.display = "flex";
 }
+
+// "Okay / Next Scan" tap handler
+document.getElementById("attConfirmOkBtn")?.addEventListener("click", () => {
+    const modal = document.getElementById("attConfirmModal");
+    if (modal) modal.style.display = "none";
+    
+    // Lock open karein agle student ke scan ke liye
+    setTimeout(() => {
+        isAttendanceProcessing = false;
+    }, 400);
+});
 
 // Render Attendance Chart
 async function renderAttendanceChart(instituteId, sessionDate) {
