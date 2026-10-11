@@ -968,6 +968,7 @@ admissionForm?.addEventListener("submit", async (e) => {
             batchTime: batchSelect?.value || "",
             joinedDate: joinDateInput ? joinDateInput.value : new Date().toISOString().split("T")[0],
             balance: Number(feeBalanceInput?.value) || 0,
+            feeDueDate: document.getElementById("feeDueDateInput")?.value || "",
             photoUrl: photoBase64 || "",
             status: "Active",
             instituteId: activeKey,
@@ -992,6 +993,7 @@ admissionForm?.addEventListener("submit", async (e) => {
 });
 
 // Attendance Engine
+// Attendance Engine
 async function handleProcessAttendance(rawData) {
     if (!rawData) return;
     let studentId = rawData.trim();
@@ -1009,7 +1011,7 @@ async function handleProcessAttendance(rawData) {
     studentId = decodeURIComponent(studentId).trim();
 
     const activeKey = instituteSelect ? instituteSelect.value : "TB_EDU";
-    const batch = attSessionBatchSelect ? attSessionBatchSelect.value : "";
+    const batch = attSessionBatchSelect ? attSessionBatchSelect.value : "ALL";
     const sessionDate = attSessionDateInput ? attSessionDateInput.value : "";
 
     if (!sessionDate) {
@@ -1027,15 +1029,23 @@ async function handleProcessAttendance(rawData) {
     });
 
     if (result.success) {
-        showToast(`✓ Marked Present: ${result.studentName} (${result.studentId})`);
-        displayScannerFeedback(`✓ Success: ${result.studentName} (${result.studentId}) marked present!`, "success");
+        // Agar Fee overdue hai toh alert message highlight hoga
+        if (result.feeWarning && result.feeWarning.includes("OVERDUE")) {
+            showToast(`✓ Marked Present: ${result.studentName}`);
+            displayScannerFeedback(`✓ Success: ${result.studentName} marked present!\n${result.feeWarning}`, "error");
+        } else {
+            showToast(`✓ Marked Present: ${result.studentName} (${result.studentId})`);
+            const msg = result.feeWarning 
+                ? `✓ Success: ${result.studentName} marked present!\n${result.feeWarning}`
+                : `✓ Success: ${result.studentName} marked present at ${result.markedAt}!`;
+            displayScannerFeedback(msg, "success");
+        }
         await loadSessionAttendanceTable();
     } else {
         showToast(result.message);
-        displayScannerFeedback(`⚠ ${result.message}`, "error");
+        displayScannerFeedback(result.message, "error");
     }
 }
-
 function displayScannerFeedback(message, type) {
     if (!scannerFeedback) return;
     scannerFeedback.textContent = message;
