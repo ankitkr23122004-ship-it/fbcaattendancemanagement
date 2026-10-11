@@ -1,0 +1,85 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isSuperAdmin() {
+      return isAuthenticated() && getUserData().role == 'super_admin';
+    }
+
+    function isInstituteAdmin(instituteId) {
+      return isAuthenticated() && (
+        isSuperAdmin() || 
+        (getUserData().role == 'institute_admin' && getUserData().instituteId == instituteId)
+      );
+    }
+
+    function isInstituteStaff(instituteId) {
+      return isAuthenticated() && (
+        isSuperAdmin() || 
+        (getUserData().instituteId == instituteId)
+      );
+    }
+
+    // User profile documents: Anyone authenticated can read their profile, Super Admin manages
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      // First bootstrap write: if creating own record or is super admin
+      allow create: if isAuthenticated() && (request.auth.uid == userId || isSuperAdmin());
+      allow update, delete: if isSuperAdmin();
+    }
+
+    // Public verification profile: Strictly non-sensitive fields
+    match /public_profiles/{studentId} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isInstituteStaff(request.resource.data.instituteId);
+    }
+
+    // Student records: Tenant isolated by instituteId
+    match /students/{studentId} {
+      allow read: if isAuthenticated() && isInstituteStaff(resource.data.instituteId);
+      allow create: if isAuthenticated() && isInstituteStaff(request.resource.data.instituteId);
+      allow update: if isAuthenticated() && isInstituteAdmin(resource.data.instituteId);
+      allow delete: if isSuperAdmin();
+    }
+
+    // Attendance records: Deterministic deduplication
+    match /attendance/{attendanceId} {
+      allow read: if isAuthenticated() && isInstituteStaff(resource.data.instituteId);
+      // Create is allowed only if record matches user's institute and does not exist yet
+      allow create: if isAuthenticated() && 
+        isInstituteStaff(request.resource.data.instituteId) &&
+        !exists(/databases/$(database)/documents/attendance/$(attendanceId));
+      // Never allow client to edit marked attendance
+      allow update: if false;
+      allow delete: if isInstituteAdmin(resource.data.instituteId);
+    }
+
+    // Courses & Batches
+    match /courses/{courseId} {
+      allow read: if isAuthenticated() && isInstituteStaff(resource.data.instituteId);
+      allow write: if isAuthenticated() && isInstituteAdmin(request.resource.data.instituteId);
+    }
+    
+    match /batches/{batchId} {
+      allow read: if isAuthenticated() && isInstituteStaff(resource.data.instituteId);
+      allow write: if isAuthenticated() && isInstituteAdmin(request.resource.data.instituteId);
+    }
+
+    // Fees & Transactions
+    match /fees/{feeId} {
+      allow read: if isAuthenticated() && isInstituteStaff(resource.data.instituteId);
+      allow create: if isAuthenticated() && isInstituteStaff(request.resource.data.instituteId);
+      allow update: if isAuthenticated() && isInstituteAdmin(resource.data.instituteId);
+      allow delete: if isSuperAdmin();
+    }
+  }
+}

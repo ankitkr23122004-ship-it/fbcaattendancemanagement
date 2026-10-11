@@ -1,0 +1,1404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Management System | Multi-Institute Portal</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/main.css">
+    <style>
+        * {
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+}
+        /* Force Solid Desktop 2-Column Layout */
+        .app-layout {
+            display: flex !important;
+            flex-direction: row !important;
+            width: 100vw;
+            min-height: calc(100vh - 33px);
+            position: relative;
+        }
+        .sidebar {
+            width: 260px !important;
+            min-width: 260px !important;
+            max-width: 260px !important;
+            background: #090d16;
+            border-right: 1px solid var(--border-color, #e2e8f0);
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: space-between;
+            height: 100vh;
+            position: sticky;
+            top: 0;
+            flex-shrink: 0 !important;
+            z-index: 50;
+        }
+        .main-wrapper {
+            flex: 1 !important;
+            min-width: 0 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            background-color: #f1f5f9;
+        }
+
+        @media print {
+            body * { visibility: hidden !important; }
+            #receiptModal, #receiptModal *, #simpleQrModal, #simpleQrModal * { visibility: visible !important; }
+            #receiptModal, #simpleQrModal {
+                position: absolute !important;
+                left: 0 !important; top: 0 !important;
+                width: 100% !important;
+                background: transparent !important;
+                display: block !important;
+                box-shadow: none !important;
+                padding: 0 !important;
+            }
+            .modal-box { border: none !important; box-shadow: none !important; max-width: 100% !important; }
+            .modal-header, .modal-footer { display: none !important; }
+            .receipt-container { border: 2px solid #000 !important; }
+        }
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(15, 23, 42, 0.65);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 16px;
+        }
+        .modal-overlay.active { display: flex !important; }
+        .modal-box {
+            background: #ffffff;
+            width: 100%;
+            max-width: 620px;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2);
+            animation: modalPop 0.2s ease-out;
+        }
+        @keyframes modalPop {
+            from { transform: scale(0.95); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        .modal-header {
+            background: #0b192c;
+            color: #ffffff;
+            padding: 18px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 3px solid var(--accent-orange, #ea580c);
+        }
+        .modal-header h3 { font-size: 1.15rem; font-weight: 700; margin: 0; }
+        .close-btn {
+            background: transparent;
+            border: none;
+            color: #ffffff;
+            font-size: 1.5rem;
+            cursor: pointer;
+            line-height: 1;
+        }
+        .modal-body { padding: 24px; max-height: 80vh; overflow-y: auto; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .form-full { grid-column: span 2; }
+        .form-field { display: flex; flex-direction: column; gap: 6px; }
+        .form-field label { font-size: 0.8rem; font-weight: 700; color: var(--text-secondary, #64748b); }
+        .form-field input, .form-field select {
+            padding: 9px 12px;
+            border: 1px solid var(--border-color, #e2e8f0);
+            border-radius: 6px;
+            font-size: 0.875rem;
+            outline: none;
+        }
+        .form-field input:focus, .form-field select:focus {
+            border-color: var(--primary-blue, #1a56db);
+            box-shadow: 0 0 0 3px rgba(26, 86, 219, 0.12);
+        }
+        .modal-footer {
+            padding: 16px 24px;
+            background: #f1f5f9;
+            border-top: 1px solid var(--border-color, #e2e8f0);
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+
+        /* QR Modal */
+        .qr-display-card { text-align: center; padding: 20px 10px; }
+        .qr-canvas-holder {
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            padding: 16px;
+            background: #ffffff;
+            border: 2px solid var(--border-color, #e2e8f0);
+            border-radius: 12px;
+            margin: 16px 0;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+            min-height: 200px;
+            min-width: 200px;
+        }
+        .qr-student-name { font-size: 1.3rem; font-weight: 800; color: var(--text-primary, #0f172a); }
+        .qr-student-id-pill {
+            display: inline-block;
+            background: var(--primary-blue-subtle, #eff6ff);
+            color: var(--primary-blue, #1a56db);
+            font-family: monospace;
+            font-size: 0.95rem;
+            font-weight: 700;
+            padding: 4px 12px;
+            border-radius: 20px;
+            margin-top: 6px;
+        }
+        .qr-info-text { font-size: 0.8rem; color: var(--text-secondary, #64748b); margin-top: 10px; }
+
+        /* Scanner Modal */
+        #scannerVideoContainer {
+            width: 100%;
+            max-width: 380px;
+            margin: 0 auto;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 2px solid var(--border-color, #e2e8f0);
+            background: #000;
+            min-height: 250px;
+        }
+        .scanner-feedback-box {
+            margin-top: 14px;
+            padding: 10px 14px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: none;
+            text-align: center;
+        }
+        .feedback-success { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+        .feedback-error { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+
+        /* Receipt Box Styles */
+        .receipt-container {
+            border: 2px dashed #0b192c;
+            padding: 20px;
+            background: #ffffff;
+            border-radius: 8px;
+            font-size: 0.875rem;
+        }
+        .receipt-header {
+            text-align: center;
+            border-bottom: 2px solid #0b192c;
+            padding-bottom: 12px;
+            margin-bottom: 14px;
+        }
+        .receipt-meta-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 14px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border-color, #e2e8f0);
+            font-size: 0.85rem;
+        }
+        .receipt-total-box {
+            background: #f1f5f9;
+            border: 1px solid var(--border-color, #e2e8f0);
+            padding: 12px;
+            border-radius: 6px;
+            margin-top: 14px;
+        }
+        .receipt-total-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            font-size: 0.9rem;
+        }
+
+        .view-section { display: none; }
+        .view-section.active { display: block; }
+
+        /* Role Badges */
+        .badge-super-admin {
+            background: #fef3c7;
+            color: #92400e;
+            font-weight: 700;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+        }
+        .badge-admin {
+            background: #e0e7ff;
+            color: #3730a3;
+            font-weight: 700;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+        }
+        .badge-staff {
+            background: #f1f5f9;
+            color: #475569;
+            font-weight: 700;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+        }
+
+        .student-table-photo {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 1px solid var(--border-color, #e2e8f0);
+        }
+        .student-photo-placeholder {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: #e2e8f0;
+            color: #475569;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.85rem;
+        }
+
+        /* Attendance Analytics Dashboard */
+        .att-kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .att-kpi-card {
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 18px 20px;
+            border: 1px solid var(--border-color, #e2e8f0);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.04);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+            overflow: hidden;
+        }
+        .att-kpi-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 4px;
+            background: var(--kpi-color, #1a56db);
+        }
+        .att-kpi-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: var(--text-secondary, #64748b);
+            font-size: 0.8rem;
+            font-weight: 700;
+        }
+        .att-kpi-value {
+            font-size: 1.85rem;
+            font-weight: 800;
+            color: var(--text-primary, #0f172a);
+            margin: 10px 0 4px 0;
+        }
+        .att-kpi-sub {
+            font-size: 0.78rem;
+            color: var(--text-secondary, #64748b);
+        }
+
+        .att-analytics-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+        @media (max-width: 992px) {
+            .att-analytics-grid { grid-template-columns: 1fr; }
+        }
+
+        .batch-progress-list {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            margin-top: 10px;
+        }
+        .batch-progress-item {
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 12px 14px;
+        }
+        .batch-progress-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        .batch-progress-bar-bg {
+            width: 100%;
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .batch-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #10b981, #059669);
+            border-radius: 10px;
+            width: 0%;
+            transition: width 0.6s ease;
+        }
+
+        .table-student-cell {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .table-student-avatar {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            object-fit: cover;
+            background: #eff6ff;
+            color: #1a56db;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.85rem;
+            border: 1px solid #cbd5e1;
+        }
+        .punctual-tag-on-time {
+            background: #ecfdf5;
+            color: #065f46;
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+        .punctual-tag-late {
+            background: #fffbeb;
+            color: #b45309;
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+        /* Table Rows Single-Line Formatting */
+.data-table th,
+.data-table td {
+    white-space: nowrap !important;
+    vertical-align: middle !important;
+    padding: 10px 14px !important;
+}
+
+/* Table responsive container ko dropdown dikhane dein */
+.table-responsive {
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+    padding-bottom: 80px !important; /* Taaki aakhiri row ka dropdown cut na ho */
+}
+
+.data-table td {
+    position: relative;
+    white-space: nowrap !important;
+}
+
+/* 3-Dots Button */
+.action-dropdown-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+.btn-action-trigger {
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    cursor: pointer;
+    color: #334155;
+    user-select: none;
+}
+
+.btn-action-trigger:hover {
+    background: #e2e8f0;
+}
+
+/* Menu popup */
+.action-dropdown-menu {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 36px;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    z-index: 9999 !important;
+    min-width: 170px;
+    padding: 6px 0;
+}
+
+.action-dropdown-menu.active {
+    display: block !important;
+}
+
+.action-dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 14px;
+    border: none;
+    background: transparent;
+    text-align: left;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #334155;
+    cursor: pointer;
+}
+
+.action-dropdown-item:hover {
+    background: #f1f5f9;
+    color: #1a56db;
+}
+
+.action-dropdown-item.item-delete {
+    color: #ef4444;
+}
+
+.action-dropdown-item.item-delete:hover {
+    background: #fef2f2;
+}
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <aside class="demo-banner" role="status">
+        <span class="badge-warning">SYSTEM STATUS</span>
+        <span>Database Connected</span>
+    </aside>
+
+    <div class="app-layout">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header" style="display: flex; align-items: center; gap: 12px; padding: 16px;">
+                <div id="sidebarLogoHolder" style="width: 70px; height: 70px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: #111111b6; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0;">
+                    <img id="sidebarLogoImg" src="tepl.png" alt="Institute Logo" style="width: 100%; height: 100%; object-fit: contain;">
+                </div>
+                <div class="logo-text" style="flex: 1; min-width: 0;">
+                    <h2 id="sidebarInstituteName" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.95rem; margin: 0; color: #e8eaf0; font-weight: 700;">Technobright</h2>
+                    <span class="sub-text" id="sidebarInstituteBranch" style="font-size: 0.75rem; color: #64748b;">PUNPUN, PATNA</span>
+                </div>
+            </div>
+
+            <nav class="sidebar-menu">
+                <p class="nav-section-title">MAIN NAVIGATION</p>
+                <a href="#dashboard" class="nav-item active" id="navDashboard">
+                    <span class="nav-icon">&#128202;</span>
+                    <span>Dashboard & Students</span>
+                </a>
+                <a href="#attendance" class="nav-item" id="navAttendance">
+                    <span class="nav-icon">&#128197;</span>
+                    <span>Attendance Scanner</span>
+                </a>
+                <a href="#fees" class="nav-item" id="navFees">
+                    <span class="nav-icon">&#128179;</span>
+                    <span>Fee Collections</span>
+                </a>
+                <a href="#courses" class="nav-item" id="navCourses">
+                    <span class="nav-icon">&#128218;</span>
+                    <span>Courses & Batches</span>
+                </a>
+                <a href="#users" class="nav-item" id="navUsers">
+                    <span class="nav-icon">&#128101;</span>
+                    <span>Staff & Roles</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="user-chip">
+                    <div class="user-avatar" id="userAvatar">U</div>
+                    <div class="user-details">
+                        <span class="user-name" id="userNameDisplay">Loading...</span>
+                        <span class="user-role" id="userRoleDisplay">Authenticating</span>
+                    </div>
+                </div>
+                <button id="logoutBtn" class="btn btn-outline btn-sm" style="width: 100%; margin-top: 12px; color: #ef4444; border-color: rgba(239, 68, 68, 0.3);">
+                    Sign Out
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Body Area -->
+        <div class="main-wrapper">
+            <header class="topbar">
+                <button class="menu-toggle-btn" id="menuToggleBtn" title="Toggle Sidebar">&#9776;</button>
+
+                <div class="institute-selector-wrapper">
+                    <label for="instituteSelect" class="selector-label">Selected Branch:</label>
+                    <select id="instituteSelect" class="institute-dropdown">
+                        <option value="TB_EDU" selected>TECHNOBRIGHT EDUCATION</option>
+                        <option value="FBCA">FUTURE BOOST COMPUTER ACADEMY (FBCA)</option>
+                    </select>
+                </div>
+
+                <div class="topbar-actions">
+                    <span class="branch-pill" id="branchBadge">PUNPUN, PATNA</span>
+                    <button class="btn btn-outline btn-sm" id="syncStatusBtn">
+                        <span class="status-indicator"></span> System Active
+                    </button>
+                </div>
+            </header>
+
+            <main class="content-container">
+                <!-- VIEW 1: DASHBOARD & STUDENTS -->
+                <section id="dashboardSection" class="view-section active">
+                    <div class="page-title-row">
+                        <div>
+                            <h1 id="activeInstituteHeading">TECHNOBRIGHT EDUCATION</h1>
+                            <p class="subtitle">Monitor students, attendance, fees and daily activities.</p>
+                        </div>
+                        <div class="action-btn-group">
+                            <button class="btn btn-primary" id="openAddStudentModalBtn">+ Add Student</button>
+                            <button class="btn btn-secondary" id="quickAttendanceNavBtn">&#128247; Scan QR Attendance</button>
+                            <button class="btn btn-outline" id="exportCsvBtn">&#128229; Export Report</button>
+                        </div>
+                    </div>
+
+                    <div class="stats-grid">
+                        <div class="metric-card">
+                            <div class="metric-header">
+                                <span class="metric-title">TOTAL STUDENTS</span>
+                                <span class="metric-icon">&#128101;</span>
+                            </div>
+                            <div class="metric-value" id="statTotalStudents">0</div>
+                            <div class="metric-footer positive">All registered students</div>
+                        </div>
+
+                        <div class="metric-card">
+                            <div class="metric-header">
+                                <span class="metric-title">ACTIVE STUDENTS</span>
+                                <span class="metric-icon">&#9989;</span>
+                            </div>
+                            <div class="metric-value" id="statActiveStudents">0</div>
+                            <div class="metric-footer neutral">Currently enrolled</div>
+                        </div>
+
+                        <div class="metric-card">
+                            <div class="metric-header">
+                                <span class="metric-title">ACTIVE BATCHES</span>
+                                <span class="metric-icon">&#9200;</span>
+                            </div>
+                            <div class="metric-value" id="statActiveBatches">0</div>
+                            <div class="metric-footer neutral">Currently running</div>
+                        </div>
+
+                        <div class="metric-card">
+                            <div class="metric-header">
+                                <span class="metric-title">PENDING FEES</span>
+                                <span class="metric-icon">&#8377;</span>
+                            </div>
+                            <div class="metric-value" id="statPendingFees">&#8377;0</div>
+                            <div class="metric-footer warning">Total outstanding amount</div>
+                        </div>
+                    </div>
+
+                    <div class="content-card">
+                        <div class="content-card-header">
+                            <div>
+                                <h3>Enrolled Students</h3>
+                                <p class="card-subtitle">Real records from Firebase Cloud Firestore</p>
+                            </div>
+                            <div class="card-actions">
+                                <input type="text" id="studentSearchInput" class="input-search" placeholder="Search students by name, ID or course">
+                            </div>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>PHOTO</th>
+                                        <th>STUDENT ID </th>
+                                        <th>STUDENT NAME</th>
+                                        <th>COURSE</th>
+                                        <th>BATCH NO.</th>
+                                        <th>ADMISSION DATE</th>
+                                        <th>STATUS</th>
+                                        <th>PENDING FEES</th>
+                                        <th>ACTIONS</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="studentTableBody">
+                                    <tr>
+                                        <td colspan="9" style="text-align: center; color: var(--text-muted); padding: 24px;">
+                                            Loading students from database...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="content-card-footer">
+                            <span class="table-info" id="tableRecordCount">0 records found</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VIEW 2: ATTENDANCE ANALYTICS & SCANNER SECTION -->
+                <section id="attendanceSection" class="view-section">
+                    <div class="page-title-row">
+                        <div>
+                            <h1>Attendance Hub & Insights</h1>
+                            <p class="subtitle">Real-time attendance rates, batch capacity metrics, and QR check-in stream</p>
+                        </div>
+                        <div class="action-btn-group">
+                            <button class="btn btn-primary" id="openScannerModalBtn">&#128248; Launch Camera Scanner</button>
+                            <button class="btn btn-outline" id="exportDailyAttendanceCsvBtn">&#128229; Export Day Sheet</button>
+                        </div>
+                    </div>
+
+                    <div class="att-kpi-grid">
+                        <div class="att-kpi-card" style="--kpi-color: #10b981;">
+                            <div class="att-kpi-header">
+                                <span>TODAY PRESENT</span>
+                                <span>&#128100;</span>
+                            </div>
+                            <div class="att-kpi-value" id="kpiAttPresent">0 / 0</div>
+                            <div class="att-kpi-sub" id="kpiAttPresentSub">Marked present today</div>
+                        </div>
+
+                        <div class="att-kpi-card" style="--kpi-color: #1a56db;">
+                            <div class="att-kpi-header">
+                                <span>ATTENDANCE RATE</span>
+                                <span>&#128202;</span>
+                            </div>
+                            <div class="att-kpi-value" id="kpiAttPercentage">0%</div>
+                            <div class="att-kpi-sub">Overall daily turnout</div>
+                        </div>
+
+                        <div class="att-kpi-card" style="--kpi-color: #ef4444;">
+                            <div class="att-kpi-header">
+                                <span>ABSENT STUDENTS</span>
+                                <span>&#9888;</span>
+                            </div>
+                            <div class="att-kpi-value" id="kpiAttAbsent">0</div>
+                            <div class="att-kpi-sub">Not scanned yet</div>
+                        </div>
+
+                        <div class="att-kpi-card" style="--kpi-color: #f59e0b;">
+                            <div class="att-kpi-header">
+                                <span>ACTIVE SESSIONS</span>
+                                <span>&#9200;</span>
+                            </div>
+                            <div class="att-kpi-value" id="kpiAttBatches">0 Active</div>
+                            <div class="att-kpi-sub">Daily configured batches</div>
+                        </div>
+                    </div>
+
+                    <div class="att-analytics-grid">
+                        <div class="content-card">
+                            <div class="content-card-header">
+                                <div>
+                                    <h3>Weekly Attendance Trend</h3>
+                                    <p class="card-subtitle">Daily student count over the last 7 active sessions</p>
+                                </div>
+                            </div>
+                            <div style="position: relative; height: 260px; width: 100%; padding: 10px;">
+                                <canvas id="attendanceTrendChart"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="content-card">
+                            <div class="content-card-header">
+                                <div>
+                                    <h3>Batch Turnout</h3>
+                                    <p class="card-subtitle">Live present ratio by timing</p>
+                                </div>
+                            </div>
+                            <div class="batch-progress-list" id="batchProgressContainer">
+                                <div style="text-align: center; color: var(--text-muted); padding: 20px;">
+                                    Loading batch attendance...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="holidayBanner" style="display: none; background: #fef3c7; border: 1px solid #f59e0b; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; align-items: center; justify-content: space-between;">
+                        <div style="display: flex; align-items: center; gap: 8px; color: #92400e; font-weight: 700;">
+                            <span>🏖️</span>
+                            <span id="holidayBannerText">Institute is closed on this date (Holiday / Off Day). Attendance calculation is paused.</span>
+                        </div>
+                        <button class="btn btn-outline btn-sm" id="revertHolidayBtn" style="border-color: #d97706; color: #b45309;">Change to Working Day</button>
+                    </div>
+
+                    <div style="display: flex; gap: 10px; margin-bottom: 16px; justify-content: flex-end;">
+                        <button type="button" class="btn btn-outline btn-sm" id="markDayHolidayBtn" style="border-color: #f59e0b; color: #b45309;">
+                            🏖️ Mark Today as Holiday
+                        </button>
+                    </div>
+
+                    <div class="content-card" style="margin-bottom: 24px; padding: 20px;">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; align-items: flex-end;">
+                            <div class="form-field">
+                                <label>FILTER BY BATCH NO.</label>
+                                <select id="attSessionBatchSelect">
+                                    <option value="ALL">All Batches (Combined)</option>
+                                </select>
+                            </div>
+
+                            <div class="form-field">
+                                <label>SESSION DATE *</label>
+                                <input type="date" id="attSessionDateInput">
+                            </div>
+
+                            <div class="form-field">
+                                <label>MANUAL STUDENT REG NO ENTRY</label>
+                                <div style="display: flex; gap: 8px;">
+                                    <input type="text" id="manualStudentIdInput" placeholder="e.g. FBCA/ADIT/450/0426">
+                                    <button class="btn btn-secondary" id="manualMarkBtn">Mark</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="content-card">
+                        <div class="content-card-header">
+                            <div>
+                                <h3>Session Verified Attendance Roster</h3>
+                                <p class="card-subtitle">Detailed check-in logs with timestamp and punctuality</p>
+                            </div>
+                            <span class="branch-pill" id="attSessionCountBadge">0 Verified Present</span>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>STUDENT PROFILE</th>
+                                        <th>REGISTRATION NO</th>
+                                        <th>COURSE</th>
+                                        <th>BATCH TIME</th>
+                                        <th>CHECK-IN TIME</th>
+                                        <th>PUNCTUALITY</th>
+                                        <th>STATUS</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="attendanceTableBody">
+                                    <tr>
+                                        <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 28px;">
+                                            No students marked for this session yet.
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VIEW 3: FEE COLLECTIONS SECTION -->
+                <section id="feesSection" class="view-section">
+                    <div class="page-title-row">
+                        <div>
+                            <h1>Fee Collections & Transactions</h1>
+                            <p class="subtitle">Complete history of student installment payments and official receipts</p>
+                        </div>
+                    </div>
+
+                    <div class="content-card">
+                        <div class="content-card-header">
+                            <div>
+                                <h3>Payment History Log</h3>
+                                <p class="card-subtitle">Institute fee records saved directly to Cloud Firestore</p>
+                            </div>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>RECEIPT NO</th>
+                                        <th>STUDENT ID / REG</th>
+                                        <th>STUDENT NAME</th>
+                                        <th>AMOUNT PAID</th>
+                                        <th>MODE</th>
+                                        <th>DATE</th>
+                                        <th>COLLECTED BY</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="feeTransactionsTableBody">
+                                    <tr>
+                                        <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 24px;">
+                                            No fee transactions recorded yet.
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VIEW 4: COURSES & BATCHES MANAGEMENT -->
+                <section id="coursesSection" class="view-section">
+                    <div class="page-title-row">
+                        <div>
+                            <h1>Courses & Batches Setup</h1>
+                            <p class="subtitle">Configure available academic programs and daily time slots</p>
+                        </div>
+                        <div class="action-btn-group">
+                            <button class="btn btn-primary" id="openAddCourseModalBtn">+ New Course</button>
+                            <button class="btn btn-secondary" id="openAddBatchModalBtn">+ New Batch Slot</button>
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px;">
+                        <div class="content-card">
+                            <div class="content-card-header">
+                                <div>
+                                    <h3>Active Courses</h3>
+                                    <p class="card-subtitle">Configured courses for active institute</p>
+                                </div>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>COURSE NAME</th>
+                                            <th>DURATION</th>
+                                            <th>FEE (₹)</th>
+                                            <th>ACTION</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="coursesTableBody">
+                                        <tr><td colspan="4" style="text-align: center; padding: 16px;">Loading courses...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="content-card">
+                            <div class="content-card-header">
+                                <div>
+                                    <h3>Batch No.</h3>
+                                    <p class="card-subtitle">Active attendance & class intervals</p>
+                                </div>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>BATCH NO.</th>
+                                            <th>INSTITUTE</th>
+                                            <th>ACTION</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="batchesTableBody">
+                                        <tr><td colspan="3" style="text-align: center; padding: 16px;">Loading batches...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VIEW 5: STAFF & USER MANAGEMENT -->
+                <section id="usersSection" class="view-section">
+                    <div class="page-title-row">
+                        <div>
+                            <h1>Team & Role Management</h1>
+                            <p class="subtitle">Manage Super Admins, Branch Managers, and Staff accounts</p>
+                        </div>
+                        <div class="action-btn-group">
+                            <button class="btn btn-primary" id="openAddUserModalBtn">+ Add Member</button>
+                        </div>
+                    </div>
+
+                    <div class="content-card">
+                        <div class="content-card-header">
+                            <div>
+                                <h3>Team Directory</h3>
+                                <p class="card-subtitle">Manage system access, permissions and institute assignees</p>
+                            </div>
+                            <div class="card-actions" style="display: flex; gap: 8px;">
+                                <select id="userRoleFilter" class="institute-dropdown" style="padding: 6px 12px; font-size: 0.85rem;">
+                                    <option value="ALL">All Roles</option>
+                                    <option value="super_admin">Super Admins</option>
+                                    <option value="admin">Institute Admins</option>
+                                    <option value="staff">Staff Members</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>MEMBER NAME</th>
+                                        <th>EMAIL ADDRESS</th>
+                                        <th>ROLE TYPE</th>
+                                        <th>ASSIGNED INSTITUTE</th>
+                                        <th>STATUS</th>
+                                        <th>ACTIONS</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="usersTableBody">
+                                    <tr>
+                                        <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">
+                                            Loading users list...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <!-- MODALS -->
+    <!-- ADD USER MODAL -->
+    <div class="modal-overlay" id="addUserModal">
+        <div class="modal-box" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3>Add Team Member</h3>
+                <button class="close-btn" id="closeAddUserBtn">&times;</button>
+            </div>
+            <form id="addUserForm">
+                <div class="modal-body">
+                    <div class="form-grid">
+                        <div class="form-field form-full">
+                            <label>FULL NAME *</label>
+                            <input type="text" id="newUserName" required placeholder="e.g. Amit Sharma">
+                        </div>
+                        <div class="form-field form-full">
+                            <label>EMAIL ADDRESS *</label>
+                            <input type="email" id="newUserEmail" autocomplete="username" required placeholder="e.g. amit@technobright.com">
+                        </div>
+                        <div class="form-field form-full">
+                            <label>TEMPORARY PASSWORD *</label>
+                            <input type="password" id="newUserPassword" autocomplete="new-password" required minlength="6" placeholder="Min 6 characters">
+                        </div>
+                        <div class="form-field">
+                            <label>ROLE ASSIGNMENT *</label>
+                            <select id="newUserRole" required>
+                                <option value="staff" selected>Staff Member</option>
+                                <option value="admin">Institute Admin</option>
+                                <option value="super_admin">Super Admin</option>
+                            </select>
+                        </div>
+                        <div class="form-field">
+                            <label>ASSIGN INSTITUTE *</label>
+                            <select id="newUserInstitute" required>
+                                <option value="TB_EDU" selected>TECHNOBRIGHT EDUCATION</option>
+                                <option value="FBCA">FUTURE BOOST COMPUTER ACADEMY (FBCA)</option>
+                                <option value="ALL">ALL (Super Admin only)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" id="cancelAddUserBtn">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="saveUserBtn">Create Account</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ADD COURSE MODAL -->
+    <div class="modal-overlay" id="addCourseModal">
+        <div class="modal-box" style="max-width: 480px;">
+            <div class="modal-header">
+                <h3>Add New Course</h3>
+                <button class="close-btn" id="closeAddCourseBtn">&times;</button>
+            </div>
+            <form id="addCourseForm">
+                <div class="modal-body">
+                    <div class="form-grid">
+                        <div class="form-field form-full">
+                            <label>COURSE NAME *</label>
+                            <input type="text" id="newCourseName" required placeholder="e.g. ADCA (Advanced Diploma in Comp. App)">
+                        </div>
+                        <div class="form-field">
+                            <label>DURATION *</label>
+                            <input type="text" id="newCourseDuration" required placeholder="e.g. 12 Months">
+                        </div>
+                        <div class="form-field">
+                            <label>STANDARD TOTAL FEE (₹) *</label>
+                            <input type="number" id="newCourseFee" min="0" required placeholder="e.g. 6500">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" id="cancelAddCourseBtn">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="saveCourseBtn">Save Course</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ADD BATCH MODAL -->
+    <div class="modal-overlay" id="addBatchModal">
+        <div class="modal-box" style="max-width: 440px;">
+            <div class="modal-header">
+                <h3>Add Batch Slot</h3>
+                <button class="close-btn" id="closeAddBatchBtn">&times;</button>
+            </div>
+            <form id="addBatchForm">
+                <div class="modal-body">
+                    <div class="form-grid">
+                        <div class="form-field form-full">
+                            <label>BATCH NUMBER / NAME *</label>
+                            <input type="text" id="newBatchTime" required placeholder="e.g. 1, 2, 3 or Batch 1">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" id="cancelAddBatchBtn">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="saveBatchBtn">Save Batch</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- NEW ADMISSION MODAL -->
+    <div class="modal-overlay" id="admissionModal">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3>New Student Admission</h3>
+                <button class="close-btn" id="closeModalBtn">&times;</button>
+            </div>
+            <form id="admissionForm">
+                <div class="modal-body">
+                    <div class="form-grid">
+                        <div class="form-field form-full">
+                            <label>ENROLLING FOR INSTITUTE</label>
+                            <input type="text" id="modalInstituteName" readonly style="background: #f1f5f9; font-weight: 600;">
+                        </div>
+                        <div class="form-field form-full">
+                            <label>REGISTRATION / ROLL NO. (AUTO-GENERATED & EDITABLE) *</label>
+                            <input type="text" id="manualRegNoInput" required placeholder="e.g. FBCA/ADIT/450/0426" style="font-weight: 700; color: #1e3a8a; letter-spacing: 0.5px;">
+                        </div>
+                        <div class="form-field">
+                            <label>STUDENT FULL NAME *</label>
+                            <input type="text" id="studentNameInput" required placeholder="e.g. Rahul Kumar">
+                        </div>
+                        <div class="form-field">
+                            <label>PHONE NUMBER (10 DIGITS) *</label>
+                            <input type="tel" id="studentPhoneInput" pattern="[0-9]{10}" required placeholder="e.g. 9876543210">
+                        </div>
+                        <div class="form-field">
+                            <label>FATHER / GUARDIAN NAME</label>
+                            <input type="text" id="guardianNameInput" placeholder="e.g. Ramesh Kumar">
+                        </div>
+                        <div class="form-field">
+                            <label>PASSPORT PHOTO UPLOAD</label>
+                            <input type="file" id="studentPhotoInput" accept="image/*">
+                        </div>
+                        <div class="form-field">
+                            <label>COURSE *</label>
+                            <select id="courseSelect" required>
+                                <option value="">Loading courses...</option>
+                            </select>
+                        </div>
+                        <div class="form-field">
+                            <label>BATCH No. *</label>
+                            <select id="batchSelect" required>
+                                <option value="">Loading batches...</option>
+                            </select>
+                        </div>
+                        <div class="form-field">
+                            <label>JOINING DATE *</label>
+                            <input type="date" id="joinDateInput" required>
+                        </div>
+                        <div class="form-field">
+                            <label>INITIAL FEE BALANCE (₹)</label>
+                            <input type="number" id="feeBalanceInput" min="0" value="0" placeholder="e.g. 3000">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" id="cancelModalBtn">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="saveStudentBtn">Save Admission</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- EDIT STUDENT MODAL -->
+    <div class="modal-overlay" id="editStudentModal">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3>Edit Student Details</h3>
+                <button class="close-btn" id="closeEditModalBtn">&times;</button>
+            </div>
+            <form id="editStudentForm">
+                <input type="hidden" id="editStudentDocId">
+                <div class="modal-body">
+                    <div class="form-grid">
+                        <div class="form-field form-full">
+                            <label>REGISTRATION NO (RECORD IDENTIFIER)</label>
+                            <input type="text" id="editRegNoDisplay" readonly style="background: #f1f5f9; font-weight: bold; color: #1e3a8a;">
+                        </div>
+                        <div class="form-field">
+                            <label>STUDENT FULL NAME *</label>
+                            <input type="text" id="editStudentName" required>
+                        </div>
+                        <div class="form-field">
+                            <label>PHONE NUMBER *</label>
+                            <input type="tel" id="editStudentPhone" pattern="[0-9]{10}" required>
+                        </div>
+                        <div class="form-field">
+                            <label>COURSE *</label>
+                            <select id="editCourseSelect" required></select>
+                        </div>
+                        <div class="form-field">
+                            <label>BATCH No. *</label>
+                            <select id="editBatchSelect" required></select>
+                        </div>
+                        <div class="form-field">
+                            <label>GUARDIAN NAME</label>
+                            <input type="text" id="editGuardianName">
+                        </div>
+                        <div class="form-field">
+                            <label>STATUS</label>
+                            <select id="editStatusSelect">
+                                <option value="Active">Active</option>
+                                <option value="Inactive">Inactive</option>
+                            </select>
+                        </div>
+                        <div class="form-field form-full">
+                            <label>STUDENT PHOTO (UPDATE / CHANGE)</label>
+                            <div style="display: flex; gap: 14px; align-items: center; margin-top: 4px;">
+                                <img id="editPhotoPreview" src="" alt="Photo" style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover; display: none; border: 2px solid #cbd5e1;">
+                                <input type="file" id="editPhotoInput" accept="image/*">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" id="cancelEditModalBtn">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="saveEditStudentBtn">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- SIMPLE QR CODE MODAL -->
+    <div class="modal-overlay" id="simpleQrModal">
+        <div class="modal-box" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3>Student QR Code</h3>
+                <button class="close-btn" id="closeSimpleQrBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="qr-display-card">
+                    <h3 class="qr-student-name" id="simpleQrName">-</h3>
+                    <div class="qr-student-id-pill" id="simpleQrId">-</div>
+                    <div class="qr-canvas-holder" id="simpleQrContainer"></div>
+                    <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 8px;">Scan for digital ID verification or attendance</p>
+                </div>
+            </div>
+            <div class="modal-footer" style="justify-content: space-between;">
+                <button type="button" class="btn btn-outline" id="dismissSimpleQrBtn">Close</button>
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" class="btn btn-outline" id="printSimpleQrBtn">&#128438; Print</button>
+                    <button type="button" class="btn btn-primary" id="downloadQrBtn">&#128190; Download PNG</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- LIVE CAMERA QR SCANNER MODAL -->
+    <div class="modal-overlay" id="scannerModal">
+        <div class="modal-box" style="max-width: 440px;">
+            <div class="modal-header">
+                <h3>Live QR Attendance Scanner</h3>
+                <button class="close-btn" id="closeScannerModalBtn">&times;</button>
+            </div>
+            <div class="modal-body" style="text-align: center;">
+                <p style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 12px;">
+                    Point student QR code at the camera lens to mark attendance automatically.
+                </p>
+                <div id="scannerVideoContainer"></div>
+                <div id="scannerFeedback" class="scanner-feedback-box"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" id="stopScannerModalBtn">Close Scanner</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PHOTO PREVIEW LIGHTBOX MODAL -->
+    <div id="photoPreviewModal" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; align-items: center; justify-content: center; background: rgba(15, 23, 42, 0.85); z-index: 99999;">
+        <div style="position: relative; max-width: 90vw; max-height: 90vh; text-align: center;">
+            <button id="closePhotoPreviewBtn" style="position: absolute; top: -40px; right: 0; background: none; border: none; color: white; font-size: 2rem; cursor: pointer; line-height: 1;">&times;</button>
+            <img id="previewModalImg" src="" alt="Student Photo" style="max-width: 85vw; max-height: 75vh; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); border: 3px solid white; object-fit: contain;">
+            <p id="previewModalCaption" style="color: white; margin-top: 10px; font-weight: 600; font-size: 1.1rem;"></p>
+        </div>
+    </div>
+
+    <!-- COLLECT FEE MODAL -->
+    <div class="modal-overlay" id="collectFeeModal">
+        <div class="modal-box" style="max-width: 480px;">
+            <div class="modal-header">
+                <h3>Collect Student Fee</h3>
+                <button class="close-btn" id="closeCollectFeeBtn">&times;</button>
+            </div>
+            <form id="collectFeeForm">
+                <div class="modal-body">
+                    <div class="form-grid">
+                        <div class="form-field form-full">
+                            <label>STUDENT DETAILS</label>
+                            <input type="text" id="feeStudentDetailDisplay" readonly style="background: #f1f5f9; font-weight: 600;">
+                        </div>
+                        <div class="form-field">
+                            <label>CURRENT DUE BALANCE</label>
+                            <input type="text" id="feeCurrentDueDisplay" readonly style="background: #fff1f2; color: #be123c; font-weight: 700;">
+                        </div>
+                        <div class="form-field">
+                            <label>AMOUNT COLLECTING (₹) *</label>
+                            <input type="number" id="feeAmountInput" required min="1" placeholder="e.g. 1500">
+                        </div>
+                        <div class="form-field">
+                            <label>PAYMENT MODE *</label>
+                            <select id="feePaymentModeSelect" required>
+                                <option value="Cash">Cash</option>
+                                <option value="UPI / QR">UPI / QR</option>
+                                <option value="Bank Transfer">Bank Transfer</option>
+                            </select>
+                        </div>
+                        <div class="form-field">
+                            <label>PAYMENT REMARKS</label>
+                            <input type="text" id="feeRemarksInput" placeholder="e.g. Month 1 Installment">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" id="cancelCollectFeeBtn">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="submitFeeBtn">Record & Generate Receipt</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- PRINTABLE RECEIPT MODAL -->
+    <div class="modal-overlay" id="receiptModal">
+        <div class="modal-box" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3>Official Fee Receipt</h3>
+                <button class="close-btn" id="closeReceiptBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="receipt-container" id="printableReceiptArea">
+                    <div class="receipt-header">
+                        <h2 id="receiptInstituteName" style="font-size: 1.25rem; font-weight: 800; color: #0b192c;">-</h2>
+                        <p id="receiptBranchName" style="font-size: 0.78rem; color: #64748b;">-</p>
+                        <p style="font-size: 0.8rem; font-weight: 700; color: #ea580c; margin-top: 4px;">MONEY RECEIPT</p>
+                    </div>
+                    <div class="receipt-meta-grid">
+                        <div><strong>Receipt No:</strong> <span id="receiptNumberVal" style="font-family: monospace;">-</span></div>
+                        <div><strong>Date:</strong> <span id="receiptDateVal">-</span></div>
+                        <div><strong>Student ID:</strong> <span id="receiptStudentIdVal">-</span></div>
+                        <div><strong>Student:</strong> <span id="receiptStudentNameVal">-</span></div>
+                        <div style="grid-column: span 2;"><strong>Course:</strong> <span id="receiptCourseVal">-</span></div>
+                    </div>
+                    <div class="receipt-total-box">
+                        <div class="receipt-total-row">
+                            <span>Amount Paid:</span>
+                            <strong id="receiptPaidVal" style="font-size: 1.15rem; color: #1a56db;">₹0</strong>
+                        </div>
+                        <div class="receipt-total-row">
+                            <span>Payment Mode:</span>
+                            <span id="receiptModeVal">-</span>
+                        </div>
+                        <div class="receipt-total-row" style="border-top: 1px dashed #cbd5e1; margin-top: 6px; padding-top: 6px;">
+                            <span>Remaining Due Balance:</span>
+                            <strong id="receiptBalanceVal" style="color: #ea580c;">₹0</strong>
+                        </div>
+                    </div>
+                    <div style="margin-top: 18px; display: flex; justify-content: space-between; align-items: flex-end; font-size: 0.75rem; color: #64748b;">
+                        <div>
+                            <span>Authorized Signatory</span><br>
+                            <span id="receiptRecordedByVal" style="font-weight: 600; color: #0f172a;">-</span>
+                        </div>
+                        <div style="text-align: right;">
+                            <span>Computer Generated Slip</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" id="dismissReceiptBtn">Close</button>
+                <button type="button" class="btn btn-primary" id="printReceiptBtn">&#128438; Print / Save PDF</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toastNotification" class="toast" role="alert"></div>
+
+    <!-- Script Entry Point -->
+    <script type="module" src="js/app.js"></script>
+    <script>
+        (function() {
+            const btn = document.getElementById("menuToggleBtn");
+            const bar = document.getElementById("sidebar");
+            
+            let overlay = document.querySelector(".sidebar-backdrop");
+            if (!overlay) {
+                overlay = document.createElement("div");
+                overlay.className = "sidebar-backdrop";
+                document.body.appendChild(overlay);
+            }
+
+            function toggle() {
+                const open = bar.classList.toggle("mobile-open");
+                overlay.classList.toggle("active", open);
+            }
+
+            btn.addEventListener("click", toggle);
+            btn.addEventListener("touchstart", function(e) {
+                e.preventDefault();
+                toggle();
+            }, { passive: false });
+
+            overlay.addEventListener("click", function() {
+                bar.classList.remove("mobile-open");
+                overlay.classList.remove("active");
+            });
+        })();
+    </script>
+    <!-- GLOBAL FLOATING ACTION MENU -->
+<div id="globalStudentActionMenu" style="display: none; position: fixed; z-index: 999999; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); min-width: 170px; padding: 6px 0;">
+    <button type="button" class="floating-action-item" data-action="qr" style="display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 14px; border: none; background: transparent; text-align: left; font-size: 0.85rem; font-weight: 600; color: #334155; cursor: pointer;">
+        📱 View QR
+    </button>
+    <button type="button" class="floating-action-item" data-action="fee" style="display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 14px; border: none; background: transparent; text-align: left; font-size: 0.85rem; font-weight: 600; color: #334155; cursor: pointer;">
+        💳 Collect Fee
+    </button>
+    <button type="button" class="floating-action-item" data-action="edit" style="display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 14px; border: none; background: transparent; text-align: left; font-size: 0.85rem; font-weight: 600; color: #334155; cursor: pointer;">
+        ✏️ Edit Details
+    </button>
+    <button type="button" class="floating-action-item" data-action="status" style="display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 14px; border: none; background: transparent; text-align: left; font-size: 0.85rem; font-weight: 600; color: #334155; cursor: pointer;">
+        🔄 Toggle Status
+    </button>
+    <button type="button" class="floating-action-item" data-action="delete" style="display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 14px; border: none; background: transparent; text-align: left; font-size: 0.85rem; font-weight: 600; color: #ef4444; cursor: pointer;">
+        🗑️ Delete Record
+    </button>
+</div>
+</body>
+</html>

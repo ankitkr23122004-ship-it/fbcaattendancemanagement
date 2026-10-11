@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login | Student Management System</title>
+    <link rel="stylesheet" href="css/auth.css">
+</head>
+<body>
+    <div class="login-card">
+        <div class="login-header">
+            <div class="login-logo">SMS</div>
+            <h1>Staff & Admin Portal</h1>
+            <p>Technobright Education & FBCA</p>
+        </div>
+
+        <div class="login-body">
+            <!-- Dynamic Error Alert -->
+            <div id="errorAlert" class="error-banner" style="display: none;"></div>
+
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="emailInput">REGISTERED EMAIL</label>
+                    <input 
+                        type="email" 
+                        id="emailInput" 
+                        class="form-control" 
+                        placeholder="admin@technobright.com" 
+                        required 
+                        autocomplete="email"
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="passwordInput">PASSWORD</label>
+                    <input 
+                        type="password" 
+                        id="passwordInput" 
+                        class="form-control" 
+                        placeholder="••••••••" 
+                        required 
+                        autocomplete="current-password"
+                    >
+                </div>
+
+                <button type="submit" id="submitBtn" class="login-btn">
+                    <span>Sign In to Dashboard</span>
+                </button>
+            </form>
+
+            <div class="login-footer-notice">
+                Protected Multi-Institute Portal &bull; Free Spark Tier
+            </div>
+        </div>
+    </div>
+
+    <!-- Modular JS scripts -->
+    <script type="module" src="js/auth.js?v=2"></script>
+</body>
+</html>

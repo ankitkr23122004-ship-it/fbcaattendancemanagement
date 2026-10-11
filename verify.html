@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Verification | Academic Portal</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+        body {
+            background: #0b192c;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+        .verification-card {
+            background: #ffffff;
+            width: 100%;
+            max-width: 380px;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.4);
+            border: 1px solid #e2e8f0;
+            text-align: center;
+        }
+        .card-top {
+            background: linear-gradient(135deg, #0b192c, #1e3a8a);
+            color: #ffffff;
+            padding: 24px 16px 50px 16px;
+        }
+        .card-top h2 { font-size: 1.15rem; font-weight: 800; letter-spacing: 0.5px; }
+        .card-top p { font-size: 0.8rem; color: #94a3b8; margin-top: 4px; }
+        .photo-wrapper {
+            margin-top: -45px;
+            display: flex;
+            justify-content: center;
+        }
+        .student-photo {
+            width: 96px;
+            height: 96px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 4px solid #ffffff;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+            background: #eff6ff;
+        }
+        .avatar-placeholder {
+            width: 96px;
+            height: 96px;
+            border-radius: 50%;
+            border: 4px solid #ffffff;
+            background: #1a56db;
+            color: #ffffff;
+            font-size: 2.2rem;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+        }
+        .card-body { padding: 16px 22px 24px 22px; }
+        .student-name { font-size: 1.35rem; font-weight: 800; color: #0f172a; margin-top: 4px; }
+        .reg-badge {
+            display: inline-block;
+            background: #eff6ff;
+            color: #1a56db;
+            font-family: monospace;
+            font-size: 0.88rem;
+            font-weight: 700;
+            padding: 4px 12px;
+            border-radius: 12px;
+            margin-top: 6px;
+            letter-spacing: 0.5px;
+        }
+        .info-list {
+            margin-top: 20px;
+            border-top: 1px dashed #cbd5e1;
+            padding-top: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            text-align: left;
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+        }
+        .info-label { color: #64748b; font-weight: 600; }
+        .info-value { color: #0f172a; font-weight: 700; text-align: right; }
+        .status-pill {
+            font-size: 0.8rem;
+            font-weight: 700;
+            padding: 3px 10px;
+            border-radius: 12px;
+        }
+        .status-active { background: #dcfce7; color: #15803d; }
+        .status-inactive { background: #fee2e2; color: #b91c1c; }
+        .card-footer {
+            background: #f8fafc;
+            padding: 12px;
+            border-top: 1px solid #e2e8f0;
+            font-size: 0.72rem;
+            color: #64748b;
+        }
+        .error-box { padding: 30px 16px; color: #ef4444; }
+    </style>
+</head>
+<body>
+
+    <div class="verification-card" id="verificationCard">
+        <div class="card-top">
+            <h2 id="instituteNameDisplay">FUTURE BOOST COMPUTER ACADEMY</h2>
+            <p id="branchNameDisplay">Authorized Study Center</p>
+        </div>
+
+        <div class="photo-wrapper">
+            <img id="studentPhotoDisplay" class="student-photo" src="" alt="Student Photo" style="display: none;">
+            <div id="studentAvatarFallback" class="avatar-placeholder">S</div>
+        </div>
+
+        <div class="card-body">
+            <h3 class="student-name" id="studentNameDisplay">Loading...</h3>
+            <div class="reg-badge" id="studentRegDisplay">FBCA/ADIT/---/----</div>
+
+            <div class="info-list">
+                <div class="info-row">
+                    <span class="info-label">Name:</span>
+                    <span class="info-value" id="valName">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Reg No:</span>
+                    <span class="info-value" id="valRegNo" style="font-family: monospace;">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Course:</span>
+                    <span class="info-value" id="valCourse">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Branch:</span>
+                    <span class="info-value" id="valBranch">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">ID Status:</span>
+                    <span class="info-value">
+                        <span id="valStatusBadge" class="status-pill status-active">&#10004; Active / Verified</span>
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-footer">
+            Technobright Education &bull; Future Boost Computer Academy<br>
+            Verified Digital Student Identification
+        </div>
+    </div>
+
+    <!-- Firebase Connection to Fetch Details -->
+    <script type="module">
+    import { db } from "./js/firebase-config.js";
+    import { collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    async function loadPublicVerification() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const regId = urlParams.get('id');
+
+        if (!regId) {
+            document.getElementById('verificationCard').innerHTML = `
+                <div class="error-box">
+                    <h3>Invalid QR Code</h3>
+                    <p style="color: #64748b; font-size: 0.85rem; margin-top: 6px;">Registration ID missing from scan.</p>
+                </div>`;
+            return;
+        }
+
+        try {
+            const cleanId = decodeURIComponent(regId).trim();
+            const q = query(collection(db, "students"), where("studentId", "==", cleanId));
+            const snap = await getDocs(q);
+
+            if (snap.empty) {
+                document.getElementById('verificationCard').innerHTML = `
+                    <div class="error-box">
+                        <h3>Student Not Found</h3>
+                        <p style="color: #64748b; font-size: 0.85rem; margin-top: 6px;">No record found for Reg No: <strong>${cleanId}</strong></p>
+                    </div>`;
+                return;
+            }
+
+            const rawData = snap.docs[0].data();
+
+            // Privacy Filter: Only extract safe public identity fields
+            const publicData = {
+                photoUrl: rawData.photoUrl || "",
+                studentName: rawData.studentName || "Student",
+                studentId: rawData.studentId || cleanId,
+                courseName: rawData.courseName || "-",
+                branch: rawData.branch || "Authorized Campus",
+                instituteName: rawData.instituteName || "ACADEMIC PORTAL",
+                status: rawData.status || "Active"
+            };
+
+            // 1. Photo Display
+            const photoImg = document.getElementById('studentPhotoDisplay');
+            const avatarFallback = document.getElementById('studentAvatarFallback');
+            if (publicData.photoUrl) {
+                photoImg.src = publicData.photoUrl;
+                photoImg.style.display = 'block';
+                avatarFallback.style.display = 'none';
+            } else {
+                photoImg.style.display = 'none';
+                avatarFallback.style.display = 'flex';
+                avatarFallback.textContent = publicData.studentName.charAt(0).toUpperCase();
+            }
+
+            // 2. Institute Branding
+            document.getElementById('instituteNameDisplay').textContent = publicData.instituteName;
+            document.getElementById('branchNameDisplay').textContent = publicData.branch;
+            document.getElementById('studentNameDisplay').textContent = publicData.studentName;
+            document.getElementById('studentRegDisplay').textContent = publicData.studentId;
+
+            // 3. Official Identity Card Fields
+            document.getElementById('valName').textContent = publicData.studentName;
+            document.getElementById('valRegNo').textContent = publicData.studentId;
+            document.getElementById('valCourse').textContent = publicData.courseName;
+            document.getElementById('valBranch').textContent = publicData.branch;
+
+            // 4. Verification Status Badge
+            const statusBadge = document.getElementById('valStatusBadge');
+            const isActive = publicData.status === "Active";
+            statusBadge.textContent = isActive ? "✔ Active" : "✖ Inactive";
+            statusBadge.className = `status-pill ${isActive ? 'status-active' : 'status-inactive'}`;
+
+        } catch (err) {
+            console.error("Verification error:", err);
+            document.getElementById('verificationCard').innerHTML = `
+                <div class="error-box">
+                    <h3>Connection Error</h3>
+                    <p style="color: #64748b; font-size: 0.85rem; margin-top: 6px;">Unable to load verification details.</p>
+                </div>`;
+        }
+    }
+
+    loadPublicVerification();
+</script>
+</body>
+</html>
